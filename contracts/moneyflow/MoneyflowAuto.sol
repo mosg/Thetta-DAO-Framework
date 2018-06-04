@@ -27,9 +27,9 @@ contract MoneyflowAuto is GenericCaller {
 	}
    */
 
-	function setRootWeiReceiverAuto(WeiAbsoluteExpense _wt) public returns(address voteOut){
+	function setRootWeiReceiverAuto(address _wt) public returns(address voteOut){
 		bytes32[] memory params = new bytes32[](1);
-		params[0] = bytes32(address(_wt));
+		params[0] = bytes32(_wt);
 
 		return doAction("setRootWeiReceiver", mf, msg.sender,"setRootWeiReceiverGeneric(bytes32[])",params);
 	}
@@ -38,6 +38,6 @@ contract MoneyflowAuto is GenericCaller {
 		bytes32[] memory params = new bytes32[](1);
 		params[0] = bytes32(_wt);
 
-		return doAction("withdrawDonations", mf, msg.sender,"withdrawDonationsToGeneric(bytes32[])",params);
+		return doAction("withdrawDonationsTo", mf, msg.sender,"withdrawDonationsToGeneric(bytes32[])",params);
 	}
 }

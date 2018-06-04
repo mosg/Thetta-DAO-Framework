@@ -23,6 +23,7 @@ global.contract('MoneyflowAuto', (accounts) => {
 	const employee1 = accounts[1];
 	const employee2 = accounts[2];
 	const employee3 = accounts[3];
+	const employee4 = accounts[6];
 	const outsider = accounts[4];
 	const output = accounts[5]; 
 
@@ -47,7 +48,8 @@ global.contract('MoneyflowAuto', (accounts) => {
 		// SEE THIS? set voting type for the action!
 		const VOTING_TYPE_1P1V = 1;
 		const VOTING_TYPE_SIMPLE_TOKEN = 2;
-		await aacInstance.setVotingParams("withdrawDonations", VOTING_TYPE_1P1V, (24 * 60), "Employees", 51, 50, 0);
+		await aacInstance.setVotingParams("withdrawDonations", VOTING_TYPE_1P1V, KECCAK256(24 * 60), KECCAK256("Employees"), KECCAK256(1), KECCAK256(50), 0);
+		await aacInstance.setVotingParams("setRootWeiReceiver", VOTING_TYPE_1P1V, KECCAK256(24 * 60), KECCAK256("Employees"), KECCAK256(1), KECCAK256(50), 0);
 
 		// add creator as first employee	
 		await store.addGroupMember(KECCAK256("Employees"), creator);
@@ -58,13 +60,16 @@ global.contract('MoneyflowAuto', (accounts) => {
 		await store.transferOwnership(daoBase.address);
 
 		await daoBase.addGroupMember("Employees", employee1);
-		await daoBase.addGroupMember("Employees", employee2);
+		// await daoBase.addGroupMember("Employees", employee2);
+		// await daoBase.addGroupMember("Employees", employee3);
+		// await daoBase.addGroupMember("Employees", employee4);
 
 		await daoBase.allowActionByAnyMemberOfGroup("addNewEmployee","Employees");
 		await daoBase.allowActionByAnyMemberOfGroup("modifyMoneyscheme","Employees");
 		await daoBase.allowActionByAddress("issueTokens", creator);
 		
 		await daoBase.allowActionByVoting("withdrawDonations", token.address);
+		await daoBase.allowActionByVoting("setRootWeiReceiver", token.address);
 
 		// AAC requires special permissions
 		await daoBase.allowActionByAddress("addNewProposal", aacInstance.address);
@@ -72,10 +77,13 @@ global.contract('MoneyflowAuto', (accounts) => {
 		await daoBase.allowActionByAddress("withdrawDonations", aacInstance.address);
 		await daoBase.allowActionByAddress("addNewTask", aacInstance.address);
 		await daoBase.allowActionByAddress("setRootWeiReceiver", aacInstance.address);
+		await daoBase.allowActionByAddress("modifyMoneyscheme", aacInstance.address);
 	});
 
 	global.it('should allow to get donations using AAC (direct call)',async() => {
 		// check permissions
+		await daoBase.allowActionByAnyMemberOfGroup("setRootWeiReceiver", "Employees");
+
 		const isCanWithdraw = await daoBase.isCanDoAction(creator,"withdrawDonations");
 		global.assert.equal(isCanWithdraw, true, 'Creator should be able to withdrawDonations directly without voting');
 
@@ -121,7 +129,7 @@ global.contract('MoneyflowAuto', (accounts) => {
 		let pointBalance = await web3.eth.getBalance(output);
 
 		// this will call the action directly!
-		await aacInstance.withdrawDonationsToAuto(output, {from:creator, gas:100000000});
+		await aacInstance.withdrawDonationsToAuto(creator, {from:creator});
 		let proposalsCount1 = await daoBase.getProposalsCount();
 		global.assert.equal(proposalsCount1, 1, 'Proposal should be added');
 
@@ -165,11 +173,14 @@ global.contract('MoneyflowAuto', (accounts) => {
 		const wae = await WeiAbsoluteExpense.new(1000);
 
 		// checking action direct call (without voting)
-		await aacInstance.setRootWeiReceiverAuto(wae, { from:employee1, gas:100000000 });
+		await aacInstance.setRootWeiReceiverAuto(wae.address, { from:employee1});
 
 		// check proposals after action called
 		const proposalsCount = await daoBase.getProposalsCount();
 		global.assert.equal(proposalsCount, 0, 'No proposals should be added');
+
+		let RE = await moneyflowInstance.getRevenueEndpoint();
+		global.assert.equal(RE, wae.address, 'RootWeiReceiver should be set');
 	});
 
 	global.it('should allow to set root receiver using AAC (with voting)',async() => {
@@ -186,10 +197,15 @@ global.contract('MoneyflowAuto', (accounts) => {
 		const wae = await WeiAbsoluteExpense.new(1000);
 
 		// checking action with voting required
-		await aacInstance.setRootWeiReceiverAuto(wae, {from:employee1, gas:100000000});
+		await aacInstance.setRootWeiReceiverAuto(wae.address, {from:employee1});
+
+		let RE = await moneyflowInstance.getRevenueEndpoint();
+		global.assert.equal(RE, wae.address, 'RootWeiReceiver should be set');
 
 		const proposalsCount2 = await daoBase.getProposalsCount();
-		global.assert.equal(proposalsCount2, 1, 'One new proposal should be added');
+		
+
+		global.assert.equal(proposalsCount2.toNumber(), 1, 'One new proposal should be added');
 
 		const pa = await daoBase.getProposalAtIndex(0);
 		const proposal = await IProposal.at(pa);
