@@ -5,6 +5,7 @@ var DaoStorage = artifacts.require("./DaoStorage");
 var WeiFund = artifacts.require("./WeiFund");
 var MoneyFlow = artifacts.require("./MoneyFlow");
 var IWeiReceiver = artifacts.require("./IWeiReceiver");
+var WeiAbsoluteExpense = artifacts.require("./WeiAbsoluteExpense");
 
 var MoneyflowAuto = artifacts.require("./MoneyflowAuto");
 
@@ -151,11 +152,61 @@ global.contract('MoneyflowAuto', (accounts) => {
 	});
 
 	global.it('should allow to set root receiver using AAC (direct call)',async() => {
+		// check permissions (permissions must be blocked)
+		const isCanDoAction = await daoBase.isCanDoAction(employee1, "setRootWeiReceiver");
+		global.assert.equal(isCanDoAction, false, 'Employee should not have permissions to run setRootWeiReceiver action');
 
+		// THIS IS REQUIRED because employee1 have to be able to run action
+		await daoBase.allowActionByAnyMemberOfGroup("setRootWeiReceiver", "Employees");
+
+		const isCanDoAction2 = await daoBase.isCanDoAction(employee1, "setRootWeiReceiver");
+		global.assert.equal(isCanDoAction2, true, 'Now employee should have permissions to run setRootWeiReceiver action');
+
+		const wae = await WeiAbsoluteExpense.new(1000);
+
+		// checking action direct call (without voting)
+		await aacInstance.setRootWeiReceiverAuto(wae, { from:employee1, gas:100000000 });
+
+		// check proposals after action called
+		const proposalsCount = await daoBase.getProposalsCount();
+		global.assert.equal(proposalsCount, 0, 'No proposals should be added');
 	});
 
 	global.it('should allow to set root receiver using AAC (with voting)',async() => {
+		// check permissions (permissions must be blocked)
+		const isCanDoAction = await daoBase.isCanDoAction(employee1, "setRootWeiReceiver");
+		global.assert.equal(isCanDoAction, false, 'Employee should not have permission to run setRootWeiReceiver action');
 
+		await daoBase.allowActionByVoting("setRootWeiReceiver", token.address);
+
+		// check proposals (must be empty)
+		const proposalsCount = await daoBase.getProposalsCount();
+		global.assert.equal(proposalsCount, 0, 'No proposals should be added');
+
+		const wae = await WeiAbsoluteExpense.new(1000);
+
+		// checking action with voting required
+		await aacInstance.setRootWeiReceiverAuto(wae, {from:employee1, gas:100000000});
+
+		const proposalsCount2 = await daoBase.getProposalsCount();
+		global.assert.equal(proposalsCount2, 1, 'One new proposal should be added');
+
+		const pa = await daoBase.getProposalAtIndex(0);
+		const proposal = await IProposal.at(pa);
+		const votingAddress = await proposal.getVoting();
+		const voting = await Voting.at(votingAddress);
+		global.assert.strictEqual(await voting.isFinished(),false,'Voting is still not finished');
+		global.assert.strictEqual(await voting.isYes(),false,'Voting is still not finished');
+
+		await voting.vote(true,0,{from:employee1});
+
+		// check voting results again
+		const r2 = await voting.getFinalResults();
+		global.assert.equal(r2[0].toNumber(),2,'yes');			// 1 already voted (who started the voting)
+		global.assert.equal(r2[1].toNumber(),0,'no');
+		global.assert.equal(r2[2].toNumber(),2,'total');
+		global.assert.strictEqual(await voting.isFinished(),true,'Voting should be finished');
+		global.assert.strictEqual(await voting.isYes(),true,'Voting is finished');
 	});
 
 });
