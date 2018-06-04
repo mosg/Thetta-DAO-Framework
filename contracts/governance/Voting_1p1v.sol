@@ -31,6 +31,8 @@ contract Voting_1p1v is IVoting, Ownable {
 		address _origin, uint _minutesToVote, string _groupName, 
 		uint _quorumPercent, uint _consensusPercent, bytes32 _emptyParam) public 
 	{
+		require((_quorumPercent<=100)&&(_quorumPercent>0));
+		require((_consensusPercent<=100)&&(_consensusPercent>0));
 		mc = _mc;
 		proposal = _proposal;
 		minutesToVote = _minutesToVote;
