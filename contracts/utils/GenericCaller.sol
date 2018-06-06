@@ -103,7 +103,12 @@ contract GenericCaller is DaoClient, Ownable {
 		VotingParams memory vp = votingParams[keccak256(_permissionId)];
 
 		if(VotingType.Voting1p1v==vp.votingType){
-			return new Voting_1p1v(mc, _proposal, _origin, uint(vp.param1), bytes32ToString(vp.param2), uint(vp.param3), uint(vp.param4), vp.param5);
+			return new Voting_1p1v(mc, _proposal, _origin, 
+										  uint(vp.param1), 
+										  bytes32ToString(vp.param2), 
+										  uint(vp.param3), 
+										  uint(vp.param4), 
+										  vp.param5);
 		}
 
 		/*

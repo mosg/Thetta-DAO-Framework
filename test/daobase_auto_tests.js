@@ -13,6 +13,38 @@ function KECCAK256 (x){
 	return web3.sha3(x);
 }
 
+var utf8 = require('utf8');
+
+function UintToToBytes32(n) {
+	n = Number(n).toString(16);
+	while (n.length < 64) {
+		n = "0" + n;
+	}
+	return "0x" + n;
+}
+
+function padToBytes32(n) {
+	while (n.length < 64) {
+		n = n + "0";
+	}
+	return "0x" + n;
+}
+
+function fromUtf8(str) {
+	str = utf8.encode(str);
+	var hex = "";
+	for (var i = 0; i < str.length; i++) {
+		var code = str.charCodeAt(i);
+		if (code === 0) {
+			break;
+		}
+		var n = code.toString(16);
+		hex += n.length < 2 ? '0' + n : n;
+	}
+
+	return padToBytes32(hex);
+};
+
 global.contract('DaoBaseAuto', (accounts) => {
 	const creator = accounts[0];
 	const employee1 = accounts[1];
@@ -43,8 +75,10 @@ global.contract('DaoBaseAuto', (accounts) => {
 		// SEE THIS? set voting type for the action!
 		const VOTING_TYPE_1P1V = 1;
 		const VOTING_TYPE_SIMPLE_TOKEN = 2;
-		await aacInstance.setVotingParams("issueTokens", VOTING_TYPE_1P1V, (24 * 60), KECCAK256("Employees"), KECCAK256(51), KECCAK256(50), 0);
-		await aacInstance.setVotingParams("upgradeDaoContract", VOTING_TYPE_1P1V, (24 * 60), KECCAK256("Employees"), KECCAK256(51), KECCAK256(50), 0);
+
+		await aacInstance.setVotingParams("issueTokens", VOTING_TYPE_1P1V, UintToToBytes32(0), fromUtf8("Employees"), UintToToBytes32(51), UintToToBytes32(51), 0);
+		await aacInstance.setVotingParams("upgradeDaoContract", VOTING_TYPE_1P1V, UintToToBytes32(0), fromUtf8("Employees"), UintToToBytes32(51), UintToToBytes32(51), 0);
+
 
 		// add creator as first employee	
 		await store.addGroupMember(KECCAK256("Employees"), creator);
@@ -150,7 +184,6 @@ global.contract('DaoBaseAuto', (accounts) => {
 		const r1 = await voting.getFinalResults();
 		global.assert.equal(r1[0],1,'yes');			// 1 already voted (who started the voting)
 		global.assert.equal(r1[1],0,'no');
-		global.assert.equal(r1[2],1,'total');
 
 		global.assert.strictEqual(await voting.isFinished(),false,'Voting is still not finished');
 		global.assert.strictEqual(await voting.isYes(),false,'Voting is still not finished');
@@ -166,7 +199,7 @@ global.contract('DaoBaseAuto', (accounts) => {
 		const r2 = await voting.getFinalResults();
 		global.assert.equal(r2[0],2,'yes');			// 1 already voted (who started the voting)
 		global.assert.equal(r2[1],0,'no');
-		global.assert.equal(r2[2],2,'total');
+		
 
 		// vote by employee 3
 		await voting.vote(true,0,{from:employee3});
@@ -224,7 +257,6 @@ global.contract('DaoBaseAuto', (accounts) => {
 		const r = await voting.getFinalResults();
 		global.assert.equal(r[0],1,'yes');			// 1 already voted (who started the voting)
 		global.assert.equal(r[1],0,'no');
-		global.assert.equal(r[2],1,'total');
 		
 		const balance1 = await token.balanceOf(employee1);
 		global.assert.strictEqual(balance1.toNumber(),600,'initial employee1 balance');
@@ -235,7 +267,7 @@ global.contract('DaoBaseAuto', (accounts) => {
 		const r2 = await voting.getFinalResults();
 		global.assert.equal(r2[0],2,'yes');			// 1 already voted (who started the voting)
 		global.assert.equal(r2[1],0,'no');
-		global.assert.equal(r2[2],2,'total');
+		
 		
 		// get voting results again
 		global.assert.strictEqual(await voting.isFinished(),true,'Voting is finished now');
@@ -284,7 +316,7 @@ global.contract('DaoBaseAuto', (accounts) => {
 		const r2 = await voting.getFinalResults();
 		global.assert.equal(r2[0].toNumber(),2,'yes');			// 1 already voted (who started the voting)
 		global.assert.equal(r2[1].toNumber(),0,'no');
-		global.assert.equal(r2[2].toNumber(),2,'total');
+		
 
 		// get voting results again
 		global.assert.strictEqual(await voting.isFinished(),true,'Voting is still not finished');

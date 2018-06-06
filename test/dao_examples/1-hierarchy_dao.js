@@ -105,7 +105,7 @@ global.contract('HierarchyDaoFactory', (accounts) => {
 		let mgrs = [manager1, manager2];
 		let empls = [employee1, employee2];
 
-		let hdf = await HierarchyDaoFactory.new(boss, mgrs, empls, {gas: 15500000, from: creator});
+		let hdf = await HierarchyDaoFactory.new(boss, mgrs, empls, {gas: 155000000, from: creator, gasPrice:0});
 		
 		const daoAddress = await hdf.dao();
 		const daoBase = await DaoBase.at(daoAddress);

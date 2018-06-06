@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.4.21;
 
 import '../IDaoBase.sol';
 
@@ -17,9 +17,10 @@ contract Voting_1p1v is IVoting, Ownable {
 	uint64 genesis;
 	uint public quorumPercent;
 	uint public consensusPercent;
+	bytes32 public emptyParam;
 
 ////////
-	string groupName;
+	string public groupName;
 
 	mapping (address=>bool) addressVotedAlready;
 	address[] employeesVotedYes;
@@ -31,14 +32,15 @@ contract Voting_1p1v is IVoting, Ownable {
 		address _origin, uint _minutesToVote, string _groupName, 
 		uint _quorumPercent, uint _consensusPercent, bytes32 _emptyParam) public 
 	{
-		require((_quorumPercent<=100)&&(_quorumPercent>0));
-		require((_consensusPercent<=100)&&(_consensusPercent>0));
+		// require((_quorumPercent<=100)&&(_quorumPercent>0));
+		// require((_consensusPercent<=100)&&(_consensusPercent>0));
 		mc = _mc;
 		proposal = _proposal;
 		minutesToVote = _minutesToVote;
 		groupName = _groupName;
 		quorumPercent = _quorumPercent;
 		consensusPercent = _consensusPercent;
+		emptyParam = _emptyParam;
 		genesis = uint64(now);
 
 		internalVote(_origin, true);
@@ -48,21 +50,22 @@ contract Voting_1p1v is IVoting, Ownable {
 
 	function isFinished()public constant returns(bool){
 		// 1 - if minutes elapsed
-
-		if((uint64(now) - genesis) >= (minutesToVote * 60 * 1000)){
-			return true;
+		if(minutesToVote>0){
+			if((uint64(now) - genesis) < (minutesToVote * 60 * 1000)){
+				return false;
+			}
 		}
 	   
 		if(finishedWithYes){
 			return true;
 		}
 
-		uint votersTotal = mc.getMembersCount(groupName);
-
 		uint yesResults = 0;
 		uint noResults = 0;
-		uint votesSum = 0;
-		(yesResults, noResults, votesSum) = getFinalResults();
+		uint votersTotal = 0;
+
+		(yesResults, noResults, votersTotal) = getFinalResults();
+		uint votesSum = yesResults + noResults;
 
 		emit Voting1p1v_IsFinished(votersTotal, votesSum);
 
@@ -77,9 +80,12 @@ contract Voting_1p1v is IVoting, Ownable {
 
 		uint yesResults = 0;
 		uint noResults = 0;
-		uint votesSum = 0;
-		(yesResults, noResults, votesSum) = getFinalResults();
-		return isFinished() && (yesResults * 100 > (yesResults + noResults)*consensusPercent);
+		uint votersTotal = 0;
+
+		(yesResults, noResults, votersTotal) = getFinalResults();
+		uint votesSum = yesResults + noResults;
+
+		return isFinished() && (yesResults * 100 >= (yesResults + noResults)*consensusPercent);
 	}
 
 	function cancelVoting() public onlyOwner {
@@ -130,10 +136,10 @@ contract Voting_1p1v is IVoting, Ownable {
 		return votedCount;
 	}
 
-	function getFinalResults() public constant returns(uint yesResults, uint noResults, uint votesSum){
+	function getFinalResults() public constant returns(uint yesResults, uint noResults, uint votersTotal){
 		yesResults = filterResults(employeesVotedYes);
 		noResults = filterResults(employeesVotedNo);
-		votesSum = yesResults + noResults;
+		votersTotal = mc.getMembersCount(groupName);
 		return;
 	}
 }
